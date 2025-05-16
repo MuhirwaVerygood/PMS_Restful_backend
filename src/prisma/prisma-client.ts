@@ -15,4 +15,17 @@ if (process.env.NODE_ENV === 'development') {
   global.prisma = prisma;
 }
 
+
+
+export const logAction = async (userId: string | null, action: string) => {
+  await prisma.log.create({
+    data: {
+      userId,
+      action,
+      createdAt: new Date(),
+    },
+  });
+};
+
+
 export default prisma;

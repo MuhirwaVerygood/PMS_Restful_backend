@@ -1,39 +1,31 @@
-import { Response } from "express"
+import { Response } from 'express';
 
-class ServerResponse {
-    status: number
-    success: boolean
-    message: string
-    data: any
+export default class ServerResponse {
+  static success(res: Response, data: any, message: string = 'Success', status: number = 200) {
+    return res.status(status).json({ success: true, message, data });
+  }
 
-    constructor(success: boolean, message: string, data: any, status: number) {
-        this.status = status
-        this.success = success
-        this.message = message
-        this.data = data
-    }
+  static created(res: Response, data: any, message: string = 'Resource created') {
+    return res.status(201).json({ success: true, message, data });
+  }
 
-    static created(res: Response, message: string, data?: any | null) {
-        return res.status(201).json(new ServerResponse(true, message, data, 201))
-    }
+  static error(res: Response, message: string = 'Internal server error', status: number = 500) {
+    return res.status(status).json({ success: false, message });
+  }
 
-    static success(res: Response, message: string, data?: any | null) {
-        return res.status(200).json(new ServerResponse(true, message, data, 200))
-    }
+  static badRequest(res: Response, message: string = 'Bad request') {
+    return res.status(400).json({ success: false, message });
+  }
 
-    static error(res: Response, message: string, data?: any | null) {
-        return res.status(400).json(new ServerResponse(false, message, data, 400))
-    }
+  static unauthorized(res: Response, message: string = 'Unauthorized') {
+    return res.status(401).json({ success: false, message });
+  }
 
-    static unauthenticated(res: Response, message: string, data?: any | null) {
-        return res.status(401).json(new ServerResponse(false, message, data, 401))
-    }
+  static forbidden(res: Response, message: string = 'Forbidden') {
+    return res.status(403).json({ success: false, message });
+  }
 
-    static unauthorized(res: Response, message: string, data?: any | null) {
-        return res.status(403).json(new ServerResponse(false, message, data, 403))
-    }
-
+  static notFound(res: Response, message: string = 'Resource not found') {
+    return res.status(404).json({ success: false, message });
+  }
 }
-
-export default ServerResponse
-
