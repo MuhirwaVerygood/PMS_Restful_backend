@@ -1,21 +1,23 @@
-// src/middleware/validation.ts
 import { plainToInstance } from 'class-transformer';
-import { validate } from 'class-validator';
-import { NextFunction, Request, Response } from 'express';
-import ServerResponse from '../utils/ServerResponse';
+import { validate, ValidationError } from 'class-validator';
+import { Request, Response, NextFunction } from 'express';
+import ServerResponse from 'utils/ServerResponse';
 
-export function validationMiddleware<T>(
-    type: any,
-    skipMissingProperties = false
-): (req: Request, res: Response, next: NextFunction) => Promise<void> {
-    return async (req: Request, res: Response, next: NextFunction) => {
-        const dto = plainToInstance(type, req.body);
-        const errors = await validate(dto, { skipMissingProperties });
-        if (errors.length > 0) {
-            ServerResponse.error(res, Object.values(errors[0]?.constraints as {})[0] as string);
-        } else {
-            req.body = dto;
-            next();
-        }
-    };
+export function validationMiddleware<T>(type: any) {
+  return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    const instance = plainToInstance(type, req.body);
+    const errors: ValidationError[] = await validate(instance);
+
+    console.log('Validation instance:', instance);
+    console.log('Validation errors:', errors);
+
+    if (errors.length > 0) {
+      const message = errors.map((error: ValidationError) => Object.values(error.constraints || {})).join(', ');
+      ServerResponse.badRequest(res, message);
+      return;
+    }
+
+    req.body = instance;
+    next();
+  };
 }

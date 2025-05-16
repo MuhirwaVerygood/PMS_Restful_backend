@@ -9,6 +9,8 @@ export class VehicleController {
   static async createVehicle(req: Request, res: Response) {
     const userId = (req as any).user.id;
     const { plateNumber, vehicleType, size, attributes } = req.body as VehicleDto;
+    console.log(plateNumber);
+    
     try {
       const vehicle = await prisma.vehicle.create({
         data: { userId, plateNumber, vehicleType, size, attributes },
