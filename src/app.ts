@@ -11,11 +11,11 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-app.use('/api/auth', authRoutes);
-app.use('/api/users', userRoutes);
-app.use('/api/vehicles', vehicleRoutes);
-app.use('/api/parking-slots', parkingRoutes);
-app.use('/api/slot-requests', slotRequestRoutes);
+app.use('/api/v1/auth', authRoutes);
+app.use('/api/v1/users', userRoutes);
+app.use('/api/v1/vehicles', vehicleRoutes);
+app.use('/api/v1/parking-slots', parkingRoutes);
+app.use('/api/v1/slot-requests', slotRequestRoutes);
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {

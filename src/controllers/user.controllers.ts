@@ -74,4 +74,6 @@ export class UserController {
       return ServerResponse.error(res, 'Failed to fetch users');
     }
   }
+
+  
 }

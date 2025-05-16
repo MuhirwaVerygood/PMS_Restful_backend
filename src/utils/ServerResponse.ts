@@ -16,6 +16,9 @@ export default class ServerResponse {
   static badRequest(res: Response, message: string = 'Bad request') {
     return res.status(400).json({ success: false, message });
   }
+  static conflict(res: Response, message: string = 'Conflict') {
+    return res.status(409).json({ success: false, message });
+  }
 
   static unauthorized(res: Response, message: string = 'Unauthorized') {
     return res.status(401).json({ success: false, message });
