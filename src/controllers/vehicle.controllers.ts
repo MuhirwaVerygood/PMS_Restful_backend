@@ -53,13 +53,22 @@ export class VehicleController {
     return ServerResponse.success(res, null, 'Vehicle deleted');
   }
 
-  static async getVehicles(req: Request, res: Response) {
+ 
+ static async getVehicles(req: Request, res: Response) {
     const userId = (req as any).user.id;
+    const isAdmin = (req as any).user.role === 'ADMIN';
+    console.log((req as any).user.role);
+    
     const { page = '1', limit = '10', search } = req.query;
     const pageNum = parseInt(page as string);
     const limitNum = parseInt(limit as string);
 
-    const where: Prisma.VehicleWhereInput = { userId };
+    const where: Prisma.VehicleWhereInput = {};
+    
+    if (!isAdmin) {
+      where.userId = userId;
+    }
+
     if (search) {
       const searchStr = search as string;
       const isVehicleType = Object.values(VehicleType).includes(searchStr.toUpperCase() as VehicleType);
@@ -75,10 +84,21 @@ export class VehicleController {
           where,
           skip: (pageNum - 1) * limitNum,
           take: limitNum,
+          include: {
+            User: {  // Changed from 'user' to 'User' to match Prisma schema
+              select: {
+                id: true,
+                name: true,
+                email: true
+              }
+            }
+          }
         }),
         prisma.vehicle.count({ where }),
       ]);
-      await logAction(userId, 'Vehicles listed');      
+      
+      await logAction(userId, 'Vehicles listed');
+      
       return ServerResponse.success(res, {
         items: vehicles,
         total,
@@ -89,16 +109,37 @@ export class VehicleController {
     } catch (error) {
       return ServerResponse.error(res, 'Failed to fetch vehicles');
     }
-  }
+}
 
-  static async getVehicleById(req: Request, res: Response) {
+
+ static async getVehicleById(req: Request, res: Response) {
     const { id } = req.params;
     const userId = (req as any).user.id;
-    const vehicle = await prisma.vehicle.findFirst({ where: { id, userId } });
+    const isAdmin = (req as any).user.role === 'ADMIN';
+    
+    const where: Prisma.VehicleWhereInput = { id };
+    if (!isAdmin) {
+      where.userId = userId;
+    }
+
+    const vehicle = await prisma.vehicle.findFirst({
+      where,
+      include: {
+        User: {  // Changed from 'user' to 'User'
+          select: {
+            id: true,
+            name: true,
+            email: true
+          }
+        }
+      }
+    });
+    
     if (!vehicle) {
       return ServerResponse.notFound(res, 'Vehicle not found');
     }
+    
     await logAction(userId, 'Vehicle viewed');
     return ServerResponse.success(res, vehicle);
-  }
+}
 }

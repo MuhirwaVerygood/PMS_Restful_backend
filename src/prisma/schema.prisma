@@ -26,7 +26,9 @@ enum Size {
 
 enum SlotStatus { 
     AVAILABLE 
-    UNAVAILABLE
+    OCCUPIED
+    RESERVED
+    MAINTENANCE
  }
 
 enum RequestStatus { 

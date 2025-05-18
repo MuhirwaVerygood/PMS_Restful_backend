@@ -1,5 +1,5 @@
-import { IsDateString, IsEnum, IsNotEmpty, IsNumberString, IsOptional, IsString, IsUUID, ValidatorConstraint, ValidatorConstraintInterface, ValidationArguments, registerDecorator } from 'class-validator';
-import { Location, Size, VehicleType } from '@prisma/client';
+import { IsDateString, IsEnum, IsNotEmpty, IsNumberString, IsOptional, IsString, IsUUID, ValidatorConstraint, ValidatorConstraintInterface, ValidationArguments, registerDecorator, IsNumber } from 'class-validator';
+import { Location, Size, SlotStatus, VehicleType } from '@prisma/client';
 
 @ValidatorConstraint({ name: 'DateRangeValidator', async: false })
 class DateRangeValidator implements ValidatorConstraintInterface {
@@ -60,7 +60,36 @@ export class GetSlotRequestsQueryDto {
   status?: string;
 }
 
+
+
+// ... (keep all existing imports and code)
+
+// Add this new DTO for creating a single slot (note: SlotDto already exists in your code)
+export class CreateSlotDto {
+  @IsString()
+  @IsNotEmpty()
+  slotNumber!: string;
+
+  @IsEnum(VehicleType)
+  @IsNotEmpty()
+  vehicleType!: VehicleType;
+
+  @IsEnum(Size)
+  @IsNotEmpty()
+  size!: Size;
+
+  @IsEnum(Location)
+  @IsNotEmpty()
+  location!: Location;
+
+  @IsEnum(SlotStatus)
+  @IsOptional()
+  status?: SlotStatus = SlotStatus.AVAILABLE; // Default to AVAILABLE
+}
+
+// Keep existing BulkSlotDto (already present in your code, included here for clarity)
 export class BulkSlotDto {
+  @IsNumber()
   @IsNotEmpty()
   count!: number;
 
@@ -69,12 +98,15 @@ export class BulkSlotDto {
   prefix!: string;
 
   @IsEnum(VehicleType)
+  @IsNotEmpty()
   vehicleType!: VehicleType;
 
   @IsEnum(Size)
+  @IsNotEmpty()
   size!: Size;
 
   @IsEnum(Location)
+  @IsNotEmpty()
   location!: Location;
 }
 
@@ -84,13 +116,20 @@ export class SlotDto {
   slotNumber!: string;
 
   @IsEnum(VehicleType)
+  @IsNotEmpty()
   vehicleType!: VehicleType;
 
   @IsEnum(Size)
+  @IsNotEmpty()
   size!: Size;
 
   @IsEnum(Location)
+  @IsNotEmpty()
   location!: Location;
+
+  @IsEnum(SlotStatus)
+  @IsNotEmpty()
+  status!: SlotStatus;
 }
 
 export class UpdateSlotDto {
@@ -109,7 +148,30 @@ export class UpdateSlotDto {
   @IsEnum(Location)
   @IsOptional()
   location?: Location;
+
+  @IsEnum(SlotStatus)
+  @IsOptional()
+  status?: SlotStatus;
 }
+
+export class GetSlotsQueryDto {
+  @IsString()
+  @IsOptional()
+  page?: string = '1';
+
+  @IsString()
+  @IsOptional()
+  limit?: string = '10';
+
+  @IsString()
+  @IsOptional()
+  search?: string;
+
+  @IsEnum(SlotStatus)
+  @IsOptional()
+  status?: SlotStatus;
+}
+
 
 export class SlotRequestDto {
   @IsUUID()
@@ -174,3 +236,4 @@ export class RejectSlotRequestDto {
   @IsNotEmpty()
   reason!: string;
 }
+

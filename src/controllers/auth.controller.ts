@@ -24,7 +24,7 @@ export class AuthController {
         data: { name, email, password: hashedPassword, role },
       });
 
-      const token = jwt.sign({ id: user.id }, process.env.JWT_SECRET as string, { expiresIn: '1d' });
+      const token = jwt.sign({ id: user.id , role: user.role }, process.env.JWT_SECRET as string, { expiresIn: '1d' });
       await logAction(user.id, 'User registered');
       return ServerResponse.created(res, { user: { id: user.id, name, email, role: user.role }, token });
     } catch (error) {
@@ -39,7 +39,7 @@ export class AuthController {
     if (!user || !(await bcrypt.compare(password, user.password))) {
       return ServerResponse.unauthorized(res, 'Invalid credentials');
     }
-    const token = jwt.sign({ id: user.id }, process.env.JWT_SECRET as string, { expiresIn: '1d' });
+    const token = jwt.sign({ id: user.id , role: user.role }, process.env.JWT_SECRET as string, { expiresIn: '1d' });
     await logAction(user.id, 'User logged in');
     return ServerResponse.success(res, { user: { id: user.id, name: user.name, email, role: user.role }, token });
   }
