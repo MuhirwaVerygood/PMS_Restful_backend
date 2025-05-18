@@ -9,7 +9,6 @@ export class VehicleController {
   static async createVehicle(req: Request, res: Response) {
     const userId = (req as any).user.id;
     const { plateNumber, vehicleType, size, attributes } = req.body as VehicleDto;
-    console.log(plateNumber);
     
     try {
       const vehicle = await prisma.vehicle.create({
@@ -79,7 +78,7 @@ export class VehicleController {
         }),
         prisma.vehicle.count({ where }),
       ]);
-      await logAction(userId, 'Vehicles listed');
+      await logAction(userId, 'Vehicles listed');      
       return ServerResponse.success(res, {
         items: vehicles,
         total,

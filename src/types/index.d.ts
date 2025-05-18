@@ -3,6 +3,7 @@ import { Request, RequestHandler } from "express";
 export interface AuthRequest extends Request {
     user: {
         id: string;
+        // role: 'USER' | 'ADMIN';
     }
 }
 
