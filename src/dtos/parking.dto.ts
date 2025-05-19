@@ -62,14 +62,7 @@ export class GetSlotRequestsQueryDto {
 
 
 
-// ... (keep all existing imports and code)
-
-// Add this new DTO for creating a single slot (note: SlotDto already exists in your code)
 export class CreateSlotDto {
-  @IsString()
-  @IsNotEmpty()
-  slotNumber!: string;
-
   @IsEnum(VehicleType)
   @IsNotEmpty()
   vehicleType!: VehicleType;
@@ -88,7 +81,7 @@ export class CreateSlotDto {
 }
 
 // Keep existing BulkSlotDto (already present in your code, included here for clarity)
-export class BulkSlotDto {
+export class BulkSlotDto {  
   @IsNumber()
   @IsNotEmpty()
   count!: number;
@@ -113,7 +106,6 @@ export class BulkSlotDto {
 // types/parking.ts
 export interface ParkingSlot {
   id: string;
-  slotNumber: string;
   vehicleType: string;
   size: string;
   location: string;
@@ -129,10 +121,6 @@ export interface ParkingSlot {
 
 
 export class SlotDto {
-  @IsString()
-  @IsNotEmpty()
-  slotNumber!: string;
-
   @IsEnum(VehicleType)
   @IsNotEmpty()
   vehicleType!: VehicleType;
@@ -151,10 +139,6 @@ export class SlotDto {
 }
 
 export class UpdateSlotDto {
-  @IsString()
-  @IsOptional()
-  slotNumber?: string;
-
   @IsEnum(VehicleType)
   @IsOptional()
   vehicleType?: VehicleType;

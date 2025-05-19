@@ -7,11 +7,8 @@ import ServerResponse from "../utils/ServerResponse";
 
 // Middleware to check if user is logged in
 export const checkLoggedIn: RequestHandler = (req: Request, res: Response, next: NextFunction): void => {
-  console.log("checkLoggedIn called for:", req.method, req.url);
   try {
     const authHeader = req.headers.authorization;
-    console.log("Authorization header:", authHeader);
-
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
       console.log("Missing or invalid Authorization header");
       ServerResponse.unauthorized(res, "You are not logged in: Missing or invalid Authorization header");
@@ -32,13 +29,13 @@ export const checkLoggedIn: RequestHandler = (req: Request, res: Response, next:
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET) as { id: string; role: string };
-    console.log("Token decoded:", decoded);
 
     (req as any).user = {
       id: decoded.id,
       role: decoded.role,
     };
 
+    
     next();
   } catch (error) {
     console.error("Authentication error:", error);
@@ -49,11 +46,7 @@ export const checkLoggedIn: RequestHandler = (req: Request, res: Response, next:
 
 
 // Middleware to check if user is an admin
-export const checkAdmin: RequestHandler = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-  console.log("checkAdmin reached for:", req.method, req.url, "User:", (req as any).user);
-
-  console.log("reached here");
-  
+export const checkAdmin: RequestHandler = async (req: Request, res: Response, next: NextFunction): Promise<void> => { 
   try {
     if (!(req as any).user) {
       console.log("No user in request");

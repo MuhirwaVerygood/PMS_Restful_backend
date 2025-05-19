@@ -45,17 +45,16 @@ interface ParkingSlotResponse {
 
 export class ParkingSlotController {
   // Create a single parking slot
-  static async createSlot(req: Request, res: Response) {
+ 
+  // Create a single parking slot with auto-generated slot number
+static async createSlot(req: Request, res: Response) {
     try {
-        console.log('Request body:', req.body); 
-
         if (!(req as any).user || (req as any).user.role !== 'ADMIN') {
             console.log('Unauthorized access attempt');
             return ServerResponse.forbidden(res, 'Forbidden');
         }
 
         const data = plainToInstance(CreateSlotDto, req.body);
-        console.log('Transformed data:', data);
 
         const errors = await validate(data);
         if (errors.length > 0) {
@@ -65,17 +64,32 @@ export class ParkingSlotController {
         }
 
         try {
-            console.log('Attempting to create slot with data:', {
-                slotNumber: data.slotNumber,
-                vehicleType: data.vehicleType,
-                size: data.size,
-                location: data.location,
-                status: data.status || 'AVAILABLE',
-            });
+            // Generate a unique slot number
+            let slotNumber: string;
+            let attempts = 0;
+            const maxAttempts = 10;
+            
+            do {
+                attempts++;
+                const randomNum = Math.floor(100 + Math.random() * 900); // 3-digit random number
+                slotNumber = `SLOT-${randomNum}`;
+                
+                // Check if slot number exists
+                const existingSlot = await prisma.parkingSlot.findUnique({
+                    where: { slotNumber }
+                });
+                
+                if (!existingSlot) break;
+                
+                if (attempts >= maxAttempts) {
+                    return ServerResponse.error(res, 'Failed to generate unique slot number after multiple attempts');
+                }
+            } while (true);
 
+          
             const slot: SlotWithRequests = await prisma.parkingSlot.create({
                 data: {
-                    slotNumber: data.slotNumber,
+                    slotNumber,
                     vehicleType: data.vehicleType,
                     size: data.size,
                     location: data.location,
@@ -92,8 +106,6 @@ export class ParkingSlotController {
                 },
             });
 
-            console.log('Slot created successfully:', slot);
-
             const response: ParkingSlotResponse = {
                 ...slot,
                 assignedTo: slot.slotRequests.length > 0
@@ -109,7 +121,7 @@ export class ParkingSlotController {
         } catch (error: any) {
             console.error('Database error:', error);
             if (error.code === 'P2002') {
-                return ServerResponse.badRequest(res, `Slot number ${data.slotNumber} already exists`);
+                return ServerResponse.badRequest(res, `Slot number already exists`);
             }
             throw error;
         }
@@ -119,70 +131,133 @@ export class ParkingSlotController {
     }
 }
 
-
-  // Create multiple parking slots in bulk
-  static async createSlots(req: Request, res: Response) {
+// Create multiple parking slots in bulk with auto-generated slot numbers
+static async createSlots(req: Request, res: Response) {
     try {
-      if (!(req as any).user || (req as any).user.role !== 'ADMIN') {
-        return ServerResponse.forbidden(res, 'Forbidden');
-      }
-
-      const data = plainToInstance(BulkSlotDto, req.body);
-      const errors = await validate(data);
-      if (errors.length > 0) {
-        const message = errors.map((error) => Object.values(error.constraints || {})).join(', ');
-        return ServerResponse.badRequest(res, message);
-      }
-
-      const { count, prefix, vehicleType, size, location } = data;
-      const slots: SlotWithRequests[] = [];
-
-      for (let i = 1; i <= count; i++) {
-        const slotNumber = `${prefix}-${i.toString().padStart(2, '0')}`;
-        try {
-          const slot: SlotWithRequests = await prisma.parkingSlot.create({
-            data: {
-              slotNumber,
-              vehicleType,
-              size,
-              location,
-              status: 'AVAILABLE',
-            },
-            include: {
-              slotRequests: {
-                where: { status: 'APPROVED' },
-                select: {
-                  userId: true,
-                  vehicle: { select: { id: true, plateNumber: true } },
-                },
-              },
-            },
-          });
-          slots.push(slot);
-        } catch (error: any) {
-          if (error.code === 'P2002') {
-            return ServerResponse.badRequest(res, `Slot number ${slotNumber} already exists`);
-          }
-          throw error;
+        if (!(req as any).user || (req as any).user.role !== 'ADMIN') {
+            return ServerResponse.forbidden(res, 'Forbidden');
         }
-      }
 
-      const response: ParkingSlotResponse[] = slots.map((slot) => ({
-        ...slot,
-        assignedTo: slot.slotRequests.length > 0
-          ? {
-              userId: slot.slotRequests[0].userId,
-              vehicleId: slot.slotRequests[0].vehicle.id,
-              vehiclePlate: slot.slotRequests[0].vehicle.plateNumber,
+        const data = plainToInstance(BulkSlotDto, req.body);
+        const errors = await validate(data);
+        if (errors.length > 0) {
+            const message = errors.map((error) => Object.values(error.constraints || {})).join(', ');
+            return ServerResponse.badRequest(res, message);
+        }
+
+        const { count, prefix, vehicleType, size, location } = data;
+
+        // Fetch existing slot numbers with the given prefix
+        const existingSlots = await prisma.parkingSlot.findMany({
+            where: {
+                slotNumber: {
+                    startsWith: prefix,
+                },
+            },
+            select: {
+                slotNumber: true,
+            },
+        });
+        const existingNumbers = new Set(existingSlots.map((s) => s.slotNumber));
+
+        // Generate unique slot numbers until we have enough
+        const slotNumbers: string[] = [];
+        let sequence = 1;
+
+        while (slotNumbers.length < count) {
+            const slotNumber = `${prefix}-${sequence.toString().padStart(5, '0')}`; // e.g., SLOT-00001
+            if (!existingNumbers.has(slotNumber)) {
+                slotNumbers.push(slotNumber);
+                existingNumbers.add(slotNumber); // Prevent duplicates in this batch
             }
-          : undefined,
-      }));
+            sequence++;
+            // No maxSequence limit; we'll keep incrementing until we get enough unique numbers
+        }
 
-      return ServerResponse.created(res, response);
+        // Create slots
+        const slots: SlotWithRequests[] = [];
+        const failedSlots: { slotNumber: string; reason: string }[] = [];
+
+        for (const slotNumber of slotNumbers) {
+            let created = false;
+            let attempt = 0;
+
+            // Retry creating this slot until it succeeds or a non-retryable error occurs
+            while (!created) {
+                try {
+                    const slot = await prisma.parkingSlot.create({
+                        data: {
+                            slotNumber,
+                            vehicleType,
+                            size,
+                            location,
+                            status: 'AVAILABLE',
+                        },
+                        include: {
+                            slotRequests: {
+                                where: { status: 'APPROVED' },
+                                select: {
+                                    userId: true,
+                                    vehicle: { select: { id: true, plateNumber: true } },
+                                },
+                            },
+                        },
+                    });
+                    slots.push(slot);
+                    created = true;
+                } catch (error: any) {
+                    attempt++;
+                    if (error.code === 'P2002') {
+                        // Slot number already exists (race condition or stale existingNumbers)
+                        // Generate a new slot number
+                        let newSlotNumber: string;
+                        do {
+                            sequence++;
+                            newSlotNumber = `${prefix}-${sequence.toString().padStart(5, '0')}`;
+                        } while (existingNumbers.has(newSlotNumber));
+                        slotNumbers[slotNumbers.indexOf(slotNumber)] = newSlotNumber;
+                        existingNumbers.add(newSlotNumber);
+                    } else {
+                        // Non-retryable error
+                        failedSlots.push({
+                            slotNumber,
+                            reason: error.message || 'Failed to create slot',
+                        });
+                        break; // Stop retrying for this slot
+                    }
+                }
+            }
+        }
+
+        // Check if all slots were created
+        if (slots.length < count) {
+            return ServerResponse.error(
+                res,
+                `Failed to create all slots. Created ${slots.length} out of ${count}. Failures: ${JSON.stringify(failedSlots)}`
+            );
+        }
+
+        const response = {
+            createdSlots: slots.map((slot) => ({
+                ...slot,
+                assignedTo: slot.slotRequests.length > 0
+                    ? {
+                          userId: slot.slotRequests[0].userId,
+                          vehicleId: slot.slotRequests[0].vehicle.id,
+                          vehiclePlate: slot.slotRequests[0].vehicle.plateNumber,
+                      }
+                    : undefined,
+            })),
+            totalCreated: slots.length,
+            failedAttempts: failedSlots,
+            requestedCount: count,
+        };
+
+        return ServerResponse.created(res, response);
     } catch (error: any) {
-      return ServerResponse.error(res, error.message || 'Internal Server Error');
+        return ServerResponse.error(res, error.message || 'Internal Server Error');
     }
-  }
+}
 
   // Get paginated list of parking slots
   static async getSlots(req: Request, res: Response) {
