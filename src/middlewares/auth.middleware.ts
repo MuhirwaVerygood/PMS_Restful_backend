@@ -22,7 +22,7 @@ export const checkAdmin: any = async (req: AuthRequest, res: Response, next: Nex
     try {
         const token = req.headers.authorization?.split(" ")[1]
         if (!token) return ServerResponse.unauthorized(res, "You are not an admin")
-        const response = await jwt.verify(token, process.env.JWT_SECRET_KEY as string, {})
+        const response = await jwt.verify(token, process.env.JWT_SECRET as string, {})
         if (!response) return ServerResponse.unauthorized(res, "You are not an admin")
         const user = await prisma.user.findUnique({ where: { id: (response as any).id } })
         if (!user) return ServerResponse.unauthorized(res, "You are not logged in")

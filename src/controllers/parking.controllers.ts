@@ -1,16 +1,17 @@
+// parking.controllers.ts
+
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
 import { Request, Response } from 'express';
-import { PrismaClient, ParkingSlot as PrismaParkingSlot, Prisma, Location, VehicleType } from '@prisma/client';
+import {  Prisma, Location, VehicleType } from '@prisma/client';
 import { BulkSlotDto, UpdateSlotDto, GetSlotsQueryDto, CreateSlotDto } from '../dtos/parking.dto';
 import ServerResponse from '../utils/ServerResponse';
-
-const prisma = new PrismaClient();
-
-// Type for ParkingSlot with included slotRequests
+import prisma from 'prisma/prisma-client';
+// Define type for ParkingSlot with slotRequests relation
 type SlotWithRequests = Prisma.ParkingSlotGetPayload<{
   include: {
     slotRequests: {
+      where: { status: 'APPROVED' };
       select: {
         userId: true;
         vehicle: { select: { id: true; plateNumber: true } };
@@ -19,59 +20,178 @@ type SlotWithRequests = Prisma.ParkingSlotGetPayload<{
   };
 }>;
 
+// Define paginated response interface
 interface PaginatedResponse<T> {
   items: T[];
   total: number;
 }
 
+// Define response type matching frontend's ParkingSlot
+interface ParkingSlotResponse {
+  id: string;
+  slotNumber: string;
+  vehicleType: string;
+  size: string;
+  location: string;
+  status: string;
+  createdAt: Date;
+  updatedAt: Date;
+  assignedTo?: {
+    userId: string;
+    vehicleId: string;
+    vehiclePlate: string;
+  };
+}
+
 export class ParkingSlotController {
-
-static async createSlot(req: Request, res: Response) {
-  try {
-    if (!(req as any).user || (req as any).user.role !== 'ADMIN') {
-      return ServerResponse.forbidden(res, 'Forbidden');
-    }
-
-    const data = plainToInstance(CreateSlotDto, (req as any).body);
-    const errors = await validate(data);
-    if (errors.length > 0) {
-      const message = errors.map((error) => Object.values(error.constraints || {})).join(', ');
-      return ServerResponse.badRequest(res, message);
-    }
-
+  // Create a single parking slot
+  static async createSlot(req: Request, res: Response) {
     try {
-      const slot = await prisma.parkingSlot.create({
-        data: {
-          slotNumber: data.slotNumber,
-          vehicleType: data.vehicleType,
-          size: data.size,
-          location: data.location,
-          status: data.status || 'AVAILABLE',
-        },
-      });
-      return ServerResponse.created(res, slot);
+        console.log('Request body:', req.body); 
+
+        if (!(req as any).user || (req as any).user.role !== 'ADMIN') {
+            console.log('Unauthorized access attempt');
+            return ServerResponse.forbidden(res, 'Forbidden');
+        }
+
+        const data = plainToInstance(CreateSlotDto, req.body);
+        console.log('Transformed data:', data);
+
+        const errors = await validate(data);
+        if (errors.length > 0) {
+            const message = errors.map((error) => Object.values(error.constraints || {})).join(', ');
+            console.log('Validation errors:', message);
+            return ServerResponse.badRequest(res, message);
+        }
+
+        try {
+            console.log('Attempting to create slot with data:', {
+                slotNumber: data.slotNumber,
+                vehicleType: data.vehicleType,
+                size: data.size,
+                location: data.location,
+                status: data.status || 'AVAILABLE',
+            });
+
+            const slot: SlotWithRequests = await prisma.parkingSlot.create({
+                data: {
+                    slotNumber: data.slotNumber,
+                    vehicleType: data.vehicleType,
+                    size: data.size,
+                    location: data.location,
+                    status: data.status || 'AVAILABLE',
+                },
+                include: {
+                    slotRequests: {
+                        where: { status: 'APPROVED' },
+                        select: {
+                            userId: true,
+                            vehicle: { select: { id: true, plateNumber: true } },
+                        },
+                    },
+                },
+            });
+
+            console.log('Slot created successfully:', slot);
+
+            const response: ParkingSlotResponse = {
+                ...slot,
+                assignedTo: slot.slotRequests.length > 0
+                    ? {
+                        userId: slot.slotRequests[0].userId,
+                        vehicleId: slot.slotRequests[0].vehicle.id,
+                        vehiclePlate: slot.slotRequests[0].vehicle.plateNumber,
+                    }
+                    : undefined,
+            };
+
+            return ServerResponse.created(res, response);
+        } catch (error: any) {
+            console.error('Database error:', error);
+            if (error.code === 'P2002') {
+                return ServerResponse.badRequest(res, `Slot number ${data.slotNumber} already exists`);
+            }
+            throw error;
+        }
     } catch (error: any) {
-      if (error.code === 'P2002') {
-        return ServerResponse.badRequest(res, `Slot number ${data.slotNumber} already exists`);
-      }
-      throw error;
+        console.error('Unexpected error:', error);
+        return ServerResponse.error(res, error.message || 'Internal Server Error');
     }
-  } catch (error: any) {
-    return ServerResponse.error(res, error.message || 'Internal Server Error');
-  }
 }
 
 
-// The existing createSlots method already handles bulk creation, so no changes needed there
+  // Create multiple parking slots in bulk
+  static async createSlots(req: Request, res: Response) {
+    try {
+      if (!(req as any).user || (req as any).user.role !== 'ADMIN') {
+        return ServerResponse.forbidden(res, 'Forbidden');
+      }
 
+      const data = plainToInstance(BulkSlotDto, req.body);
+      const errors = await validate(data);
+      if (errors.length > 0) {
+        const message = errors.map((error) => Object.values(error.constraints || {})).join(', ');
+        return ServerResponse.badRequest(res, message);
+      }
 
+      const { count, prefix, vehicleType, size, location } = data;
+      const slots: SlotWithRequests[] = [];
+
+      for (let i = 1; i <= count; i++) {
+        const slotNumber = `${prefix}-${i.toString().padStart(2, '0')}`;
+        try {
+          const slot: SlotWithRequests = await prisma.parkingSlot.create({
+            data: {
+              slotNumber,
+              vehicleType,
+              size,
+              location,
+              status: 'AVAILABLE',
+            },
+            include: {
+              slotRequests: {
+                where: { status: 'APPROVED' },
+                select: {
+                  userId: true,
+                  vehicle: { select: { id: true, plateNumber: true } },
+                },
+              },
+            },
+          });
+          slots.push(slot);
+        } catch (error: any) {
+          if (error.code === 'P2002') {
+            return ServerResponse.badRequest(res, `Slot number ${slotNumber} already exists`);
+          }
+          throw error;
+        }
+      }
+
+      const response: ParkingSlotResponse[] = slots.map((slot) => ({
+        ...slot,
+        assignedTo: slot.slotRequests.length > 0
+          ? {
+              userId: slot.slotRequests[0].userId,
+              vehicleId: slot.slotRequests[0].vehicle.id,
+              vehiclePlate: slot.slotRequests[0].vehicle.plateNumber,
+            }
+          : undefined,
+      }));
+
+      return ServerResponse.created(res, response);
+    } catch (error: any) {
+      return ServerResponse.error(res, error.message || 'Internal Server Error');
+    }
+  }
+
+  // Get paginated list of parking slots
   static async getSlots(req: Request, res: Response) {
     try {
       if (!(req as any).user) {
         return ServerResponse.unauthorized(res, 'Unauthorized');
       }
 
-      const query = plainToInstance(GetSlotsQueryDto, (req as any).query);
+      const query = plainToInstance(GetSlotsQueryDto, req.query);
       const errors = await validate(query);
       if (errors.length > 0) {
         const message = errors.map((error) => Object.values(error.constraints || {})).join(', ');
@@ -116,7 +236,7 @@ static async createSlot(req: Request, res: Response) {
             where: { status: 'APPROVED' },
             select: {
               userId: true,
-              vehicle: { select: { id: true,  plateNumber: true } },
+              vehicle: { select: { id: true, plateNumber: true } },
             },
           },
         },
@@ -126,21 +246,7 @@ static async createSlot(req: Request, res: Response) {
 
       const [slots, total] = await Promise.all([slotsPromise, totalPromise]) as [SlotWithRequests[], number];
 
-      const response: PaginatedResponse<{
-        id: string;
-        slotNumber: string;
-        vehicleType: string;
-        size: string;
-        location: string;
-        status: string;
-        createdAt: Date;
-        updatedAt: Date;
-        assignedTo?: {
-          userId: string;
-          vehicleId: string;
-          vehiclePlate: string;
-        };
-      }> = {
+      const response: PaginatedResponse<ParkingSlotResponse> = {
         items: slots.map((slot) => ({
           ...slot,
           assignedTo: slot.slotRequests.length > 0
@@ -160,14 +266,15 @@ static async createSlot(req: Request, res: Response) {
     }
   }
 
+  // Get a single parking slot by ID
   static async getSlotById(req: Request, res: Response) {
     try {
       if (!(req as any).user) {
         return ServerResponse.unauthorized(res, 'Unauthorized');
       }
 
-      const { id } = (req as any).params;
-      const slot = await prisma.parkingSlot.findUnique({
+      const { id } = req.params;
+      const slot: SlotWithRequests | null = await prisma.parkingSlot.findUnique({
         where: { id },
         include: {
           slotRequests: {
@@ -184,7 +291,7 @@ static async createSlot(req: Request, res: Response) {
         return ServerResponse.badRequest(res, 'Parking slot not found');
       }
 
-      const response = {
+      const response: ParkingSlotResponse = {
         ...slot,
         assignedTo: slot.slotRequests.length > 0
           ? {
@@ -201,57 +308,15 @@ static async createSlot(req: Request, res: Response) {
     }
   }
 
-  static async createSlots(req: Request, res: Response) {
-    try {
-      if (!(req as any).user || (req as any).user.role !== 'ADMIN') {
-        return ServerResponse.forbidden(res, 'Forbidden');
-      }
-
-      const data = plainToInstance(BulkSlotDto, (req as any).body);
-      const errors = await validate(data);
-      if (errors.length > 0) {
-        const message = errors.map((error) => Object.values(error.constraints || {})).join(', ');
-        return ServerResponse.badRequest(res, message);
-      }
-
-      const { count, prefix, vehicleType, size, location } = data;
-      const slots: PrismaParkingSlot[] = [];
-
-      for (let i = 1; i <= count; i++) {
-        const slotNumber = `${prefix}-${i.toString().padStart(2, '0')}`;
-        try {
-          const slot = await prisma.parkingSlot.create({
-            data: {
-              slotNumber,
-              vehicleType,
-              size,
-              location,
-              status: 'AVAILABLE',
-            },
-          });
-          slots.push(slot);
-        } catch (error: any) {
-          if (error.code === 'P2002') {
-            return ServerResponse.badRequest(res, `Slot number ${slotNumber} already exists`);
-          }
-          throw error;
-        }
-      }
-
-      return ServerResponse.created(res, slots);
-    } catch (error: any) {
-      return ServerResponse.error(res, error.message || 'Internal Server Error');
-    }
-  }
-
+  // Update a parking slot
   static async updateSlot(req: Request, res: Response) {
     try {
       if (!(req as any).user || (req as any).user.role !== 'ADMIN') {
         return ServerResponse.forbidden(res, 'Forbidden');
       }
 
-      const { id } = (req as any).params;
-      const data = plainToInstance(UpdateSlotDto, (req as any).body);
+      const { id } = req.params;
+      const data = plainToInstance(UpdateSlotDto, req.body);
       const errors = await validate(data);
       if (errors.length > 0) {
         const message = errors.map((error) => Object.values(error.constraints || {})).join(', ');
@@ -263,10 +328,9 @@ static async createSlot(req: Request, res: Response) {
         return ServerResponse.badRequest(res, 'Parking slot not found');
       }
 
-      const updatedSlot = await prisma.parkingSlot.update({
+      const updatedSlot: SlotWithRequests = await prisma.parkingSlot.update({
         where: { id },
         data: {
-          slotNumber: data.slotNumber,
           vehicleType: data.vehicleType,
           size: data.size,
           location: data.location,
@@ -277,13 +341,13 @@ static async createSlot(req: Request, res: Response) {
             where: { status: 'APPROVED' },
             select: {
               userId: true,
-              vehicle: { select: { id: true , plateNumber: true } },
+              vehicle: { select: { id: true ,  plateNumber: true } },
             },
           },
         },
       });
 
-      const response = {
+      const response: ParkingSlotResponse = {
         ...updatedSlot,
         assignedTo: updatedSlot.slotRequests.length > 0
           ? {
@@ -297,22 +361,31 @@ static async createSlot(req: Request, res: Response) {
       return ServerResponse.success(res, response);
     } catch (error: any) {
       if (error.code === 'P2002') {
-        return ServerResponse.badRequest(res, `Slot number ${(req as any).body.slotNumber} already exists`);
+        return ServerResponse.badRequest(res, `Slot number ${req.body.slotNumber} already exists`);
       }
       return ServerResponse.error(res, error.message || 'Internal Server Error');
     }
   }
 
+  // Delete a parking slot
   static async deleteSlot(req: Request, res: Response) {
     try {
       if (!(req as any).user || (req as any).user.role !== 'ADMIN') {
         return ServerResponse.forbidden(res, 'Forbidden');
       }
 
-      const { id } = (req as any).params;
-      const slot = await prisma.parkingSlot.findUnique({
+      const { id } = req.params;
+      const slot: SlotWithRequests | null = await prisma.parkingSlot.findUnique({
         where: { id },
-        include: { slotRequests: { where: { status: 'APPROVED' } } },
+        include: {
+          slotRequests: {
+            where: { status: 'APPROVED' },
+            select: {
+              userId: true,
+              vehicle: { select: { id: true , plateNumber: true } },
+            },
+          },
+        },
       });
 
       if (!slot) {

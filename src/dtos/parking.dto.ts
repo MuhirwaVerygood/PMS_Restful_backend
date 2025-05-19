@@ -110,6 +110,24 @@ export class BulkSlotDto {
   location!: Location;
 }
 
+// types/parking.ts
+export interface ParkingSlot {
+  id: string;
+  slotNumber: string;
+  vehicleType: string;
+  size: string;
+  location: string;
+  status: string;
+  createdAt: Date;
+  updatedAt: Date;
+  assignedTo?: {
+    userId: string;
+    vehicleId: string;
+    vehiclePlate: string;
+  };
+}
+
+
 export class SlotDto {
   @IsString()
   @IsNotEmpty()

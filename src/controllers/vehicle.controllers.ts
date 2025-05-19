@@ -56,9 +56,7 @@ export class VehicleController {
  
  static async getVehicles(req: Request, res: Response) {
     const userId = (req as any).user.id;
-    const isAdmin = (req as any).user.role === 'ADMIN';
-    console.log((req as any).user.role);
-    
+    const isAdmin = (req as any).user.role === 'ADMIN';    
     const { page = '1', limit = '10', search } = req.query;
     const pageNum = parseInt(page as string);
     const limitNum = parseInt(limit as string);
