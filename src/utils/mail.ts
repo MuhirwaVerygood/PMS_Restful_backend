@@ -32,91 +32,6 @@ if (!process.env.CLIENT_URL) {
   throw new Error('Missing CLIENT_URL in environment variables');
 }
 
-const sendAccountVerificationEmail = async (email: string, names: string, verificationToken: string) => {
-  try {
-    await transporter.sendMail({
-      from: `"NE NodeJS Template" <${process.env.EMAIL_USER}>`,
-      to: email,
-      subject: 'Account Verification',
-      html: `
-        <!DOCTYPE html>
-        <html lang="en">
-        <head>
-          <meta charset="UTF-8">
-          <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <style>
-            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-            h2 { color: #4200FE; }
-            a { color: #4200FE; text-decoration: none; }
-            .code { font-weight: bold; font-size: 1.2em; }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <h2>Dear ${names},</h2>
-            <p>Please verify your account by clicking the link below or using the verification code:</p>
-            <p class="code">Verification Code: ${verificationToken}</p>
-            <p><a href="${process.env.CLIENT_URL}/auth/verify-email/${verificationToken}">Click here to verify</a></p>
-            <p>This code expires in 6 hours.</p>
-            <p>Best regards,<br>NE NodeJS Template Team</p>
-          </div>
-        </body>
-        </html>
-      `,
-    });
-
-    await logAction('system', `Sent account verification email to ${email}`);
-    return { message: 'Email sent successfully', status: true };
-  } catch (error: unknown) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    await logAction('system', `Failed to send account verification email to ${email}: ${errorMessage}`);
-    return { message: 'Unable to send email', status: false };
-  }
-};
-
-const sendPasswordResetEmail = async (email: string, names: string, passwordResetToken: string) => {
-  try {
-    await transporter.sendMail({
-      from: `"NE NodeJS Template" <${process.env.EMAIL_USER}>`,
-      to: email,
-      subject: 'Password Reset',
-      html: `
-        <!DOCTYPE html>
-        <html lang="en">
-        <head>
-          <meta charset="UTF-8">
-          <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <style>
-            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-            h2 { color: #4200FE; }
-            a { color: #4200FE; text-decoration: none; }
-            .code { font-weight: bold; font-size: 1.2em; }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <h2>Dear ${names},</h2>
-            <p>Click the link below or use the code to reset your password:</p>
-            <p class="code">Reset Code: ${passwordResetToken}</p>
-            <p><a href="${process.env.CLIENT_URL}/auth/reset-password/${passwordResetToken}">Click here to reset password</a></p>
-            <p>This code expires in 6 hours.</p>
-            <p>Best regards,<br>NE NodeJS Template Team</p>
-          </div>
-        </body>
-        </html>
-      `,
-    });
-
-    await logAction('system', `Sent password reset email to ${email}`);
-    return { message: 'Email sent successfully', status: true };
-  } catch (error: unknown) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    await logAction('system', `Failed to send password reset email to ${email}: ${errorMessage}`);
-    return { message: 'Unable to send email', status: false };
-  }
-};
 
 const sendSlotApprovalEmail = async (
   to: string,
@@ -165,4 +80,4 @@ const sendSlotApprovalEmail = async (
   }
 };
 
-export { sendAccountVerificationEmail, sendPasswordResetEmail, sendSlotApprovalEmail };
+export { sendSlotApprovalEmail };

@@ -5,6 +5,7 @@ import { PrismaClient, SlotRequest, RequestStatus } from '@prisma/client';
 import { toFrontendSlotRequest, FrontendSlotRequest } from '../mappers/slotRequest.mappers';
 import { GetSlotRequestsQueryDto } from '../dtos/parking.dto';
 import ServerResponse from '../utils/ServerResponse';
+import { sendSlotApprovalEmail } from 'utils/mail';
 
 const prisma = new PrismaClient();
 
@@ -210,6 +211,8 @@ export class SlotRequestController {
       });
 
       if (!slotRequest || slotRequest.status !== 'PENDING') {
+        console.log(slotRequest?.status);
+        
         return ServerResponse.badRequest(res, 'Invalid or non-pending slot request');
       }
 
@@ -223,7 +226,7 @@ export class SlotRequestController {
         include: {
           vehicle: { select: { id: true, plateNumber: true, vehicleType: true, size: true } },
           slot: { select: { id: true, slotNumber: true } },
-          user: { select: { name: true } },
+          user: { select: { name: true ,  email : true} },
         },
       });
 
@@ -231,6 +234,9 @@ export class SlotRequestController {
         where: { id: slotId },
         data: { status: 'OCCUPIED' },
       });
+
+      await sendSlotApprovalEmail( updatedSlotRequest.user.email , slot.slotNumber, updatedSlotRequest.vehicle.plateNumber ,  updatedSlotRequest.updatedAt )
+console.log("Email sent successfully");
 
       return ServerResponse.success(res, toFrontendSlotRequest(updatedSlotRequest));
     } catch (error: any) {
@@ -285,10 +291,7 @@ export class SlotRequestController {
     // - **Reuses ServerResponse**: Maintains consistent response formatting across the controller.
 
     try {
-      // Check for authenticated admin user
-      if (!(req as any).user || (req as any).user.role !== 'ADMIN') {
-        return ServerResponse.forbidden(res, 'Forbidden');
-      }
+   
 
       // Get slotId from request parameters
       const slotId = (req as any).params.slotId;
