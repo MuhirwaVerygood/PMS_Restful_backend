@@ -9,5 +9,5 @@ const router = Router();
 router.put('/profile', checkLoggedIn, validationMiddleware(UpdateProfileDto), asyncHandler(UserController.updateProfile));
 router.put('/password', checkLoggedIn, validationMiddleware(UpdatePasswordDto), asyncHandler(UserController.updatePassword));
 router.get('/', checkLoggedIn, checkAdmin, asyncHandler(UserController.getUsers));
-
+router.delete("/:id" , checkLoggedIn,  checkAdmin, asyncHandler(UserController.deleteUser) )
 export default router;
