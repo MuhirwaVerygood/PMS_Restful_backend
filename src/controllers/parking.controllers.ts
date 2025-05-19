@@ -26,9 +26,6 @@ interface PaginatedResponse<T> {
 
 export class ParkingSlotController {
 
-  // ... (keep all existing imports and code in ParkingSlotController)
-
-// Add this new method to ParkingSlotController class
 static async createSlot(req: Request, res: Response) {
   try {
     if (!(req as any).user || (req as any).user.role !== 'ADMIN') {
