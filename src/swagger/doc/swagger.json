@@ -25,7 +25,7 @@
     },
     {
       "name": "Parking",
-      "description": "Parking lot management endpoints"
+      "description": "Parking slot management endpoints"
     },
     {
       "name": "Vehicles",
