@@ -1,37 +1,90 @@
-import { NextFunction, Request, RequestHandler, Response } from "express";
+// auth.middleware.ts
+
+import { NextFunction, Request, Response, RequestHandler } from "express";
 import jwt from "jsonwebtoken";
-import {  AuthRequest } from "../types";
 import prisma from "../prisma/prisma-client";
 import ServerResponse from "../utils/ServerResponse";
 
-export const checkLoggedIn: any = (req: AuthRequest, res: Response, next: NextFunction) => {
-    try {
-        const token = req.headers.authorization?.split(" ")[1]
-        if (!token) return ServerResponse.unauthorized(res, "You are not logged in")
-        const response = jwt.verify(token, process.env.JWT_SECRET as string, {})
-        if (!response) return ServerResponse.unauthorized(res, "You are not logged in")
-        req.user = { id: (response as any).id , role: (response as any).role }
-        next()
-    }
-    catch (error) {
-        return ServerResponse.error(res, "Internal server error 500.")
-    }
-}
+// Middleware to check if user is logged in
+export const checkLoggedIn: RequestHandler = (req: Request, res: Response, next: NextFunction): void => {
+  console.log("checkLoggedIn called for:", req.method, req.url);
+  try {
+    const authHeader = req.headers.authorization;
+    console.log("Authorization header:", authHeader);
 
-export const checkAdmin: any = async (req: AuthRequest, res: Response, next: NextFunction) => {
-    try {
-        const token = req.headers.authorization?.split(" ")[1]
-        if (!token) return ServerResponse.unauthorized(res, "You are not an admin")
-        const response = await jwt.verify(token, process.env.JWT_SECRET as string, {})
-        if (!response) return ServerResponse.unauthorized(res, "You are not an admin")
-        const user = await prisma.user.findUnique({ where: { id: (response as any).id } })
-        if (!user) return ServerResponse.unauthorized(res, "You are not logged in")
-        if (user.role != "ADMIN") return ServerResponse.unauthorized(res, "You're not allowed to access this resource")
-        req.user = { id: user.id  , role: "USER" }
-        next()
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      console.log("Missing or invalid Authorization header");
+      ServerResponse.unauthorized(res, "You are not logged in: Missing or invalid Authorization header");
+      return;
     }
-    catch (error) {
-        console.log(error);
-        return ServerResponse.error(res, "Internal server error 500.")
+
+    const token = authHeader.split(" ")[1];
+    if (!token) {
+      console.log("No token provided");
+      ServerResponse.unauthorized(res, "You are not logged in: No token provided");
+      return;
     }
-}
+
+    if (!process.env.JWT_SECRET) {
+      console.log("JWT_SECRET not configured");
+      ServerResponse.error(res, "Server configuration error");
+      return;
+    }
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET) as { id: string; role: string };
+    console.log("Token decoded:", decoded);
+
+    (req as any).user = {
+      id: decoded.id,
+      role: decoded.role,
+    };
+
+    next();
+  } catch (error) {
+    console.error("Authentication error:", error);
+    ServerResponse.unauthorized(res, "Invalid or expired token");
+  }
+};
+
+
+
+// Middleware to check if user is an admin
+export const checkAdmin: RequestHandler = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  console.log("checkAdmin reached for:", req.method, req.url, "User:", (req as any).user);
+
+  console.log("reached here");
+  
+  try {
+    if (!(req as any).user) {
+      console.log("No user in request");
+      ServerResponse.unauthorized(res, "Authentication required");
+      return;
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: (req as any).user.id },
+    });
+
+    if (!user) {
+      console.log("User not found:", (req as any).user.id);
+      ServerResponse.unauthorized(res, "User not found");
+      return;
+    }
+
+    if (user.role !== "ADMIN") {
+      console.log("User is not admin:", user.role);
+      ServerResponse.forbidden(res, "Admin access required");
+      return;
+    }
+
+    (req as any).user = {
+      id: user.id,
+      role: user.role,
+    };
+
+    next();
+  } catch (error) {
+    console.error("Admin check error:", error);
+    ServerResponse.error(res, "Internal server error");
+  }
+};

@@ -1,11 +1,19 @@
-import { Request, RequestHandler } from "express";
+import { Request } from 'express';
 
-export interface AuthRequest extends Request {
-    user: {
+declare global {
+  namespace Express {
+    interface Request {
+      user?: {
         id: string;
-        role: 'USER' | 'ADMIN';
+        role: string;
+      };
     }
+  }
 }
 
-
-type AuthMiddleware = (req: AuthRequest, res: Response, next: NextFunction) => void
+export interface AuthRequest extends Request {
+  user?: {
+    id: string;
+    role: string;
+  };
+}
