@@ -8,9 +8,6 @@ export function validationMiddleware<T>(type: any) {
     const instance = plainToInstance(type, req.body);
     const errors: ValidationError[] = await validate(instance);
 
-    console.log('Validation instance:', instance);
-    console.log('Validation errors:', errors);
-
     if (errors.length > 0) {
       const message = errors.map((error: ValidationError) => Object.values(error.constraints || {})).join(', ');
       ServerResponse.badRequest(res, message);

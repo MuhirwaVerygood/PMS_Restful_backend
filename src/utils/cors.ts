@@ -1,5 +1,6 @@
 const whitelist = [
     "http://localhost:8090",
+    "*"
     // "https://nenodejs-services.vercel.app",
     // "https://nenodejs-backend.onrender.com",
     // "https://nenodejsservices.eu",
