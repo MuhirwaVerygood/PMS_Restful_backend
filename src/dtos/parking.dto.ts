@@ -9,7 +9,11 @@ class DateRangeValidator implements ValidatorConstraintInterface {
     
     if (value && args.property === 'startDate') {
       const start = new Date(value);
-      return start >= now;
+      // Remove time component for date-only comparison
+      const startDateOnly = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+      const nowDateOnly = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      
+      return startDateOnly >= nowDateOnly;
     }
     
     if (value && args.property === 'endDate' && startDate) {
@@ -23,7 +27,7 @@ class DateRangeValidator implements ValidatorConstraintInterface {
 
   defaultMessage(args: ValidationArguments): string {
     if (args.property === 'startDate') {
-      return 'startDate must not be earlier than the current date and time';
+      return 'startDate must not be earlier than the current date';
     }
     return 'endDate must not be earlier than startDate';
   }

@@ -229,7 +229,7 @@ export class SlotRequestController {
 
       await prisma.parkingSlot.update({
         where: { id: slotId },
-        data: { status: 'UNAVAILABLE' },
+        data: { status: 'OCCUPIED' },
       });
 
       return ServerResponse.success(res, toFrontendSlotRequest(updatedSlotRequest));
@@ -270,6 +270,59 @@ export class SlotRequestController {
 
       return ServerResponse.success(res, toFrontendSlotRequest(updatedSlotRequest));
     } catch (error: any) {
+      return ServerResponse.error(res, error.message || 'Internal Server Error');
+    }
+  }
+
+  // New method to get rejection reason by slotId
+  static async getRejectionReasonBySlotId(req: Request, res: Response) {
+    // Purpose: Retrieve the rejection reason for a slot request associated with a given slotId.
+    // Why this implementation:
+    // - **Admin-only access**: Matches the security model of approve/reject methods, ensuring only admins can access rejection reasons.
+    // - **Simple query**: Uses Prisma to find the first matching slot request by slotId, which is efficient for this use case.
+    // - **Clear responses**: Returns the rejection reason if found, or appropriate error messages for invalid cases, consistent with other methods.
+    // - **Handles edge cases**: Checks for slot request existence, rejected status, and null rejection reasons.
+    // - **Reuses ServerResponse**: Maintains consistent response formatting across the controller.
+
+    try {
+      // Check for authenticated admin user
+      if (!(req as any).user || (req as any).user.role !== 'ADMIN') {
+        return ServerResponse.forbidden(res, 'Forbidden');
+      }
+
+      // Get slotId from request parameters
+      const slotId = (req as any).params.slotId;
+
+      // Validate slotId
+      if (!slotId) {
+        return ServerResponse.badRequest(res, 'Slot ID is required');
+      }
+
+      // Find the slot request by slotId
+      const slotRequest = await prisma.slotRequest.findFirst({
+        where: { slotId },
+        select: {
+          status: true,
+          rejectionReason: true,
+        },
+      });
+
+      // Check if slot request exists
+      if (!slotRequest) {
+        return ServerResponse.badRequest(res, 'No slot request found for the provided slot ID');
+      }
+
+      // Check if the request is rejected
+      if (slotRequest.status !== RequestStatus.REJECTED) {
+        return ServerResponse.badRequest(res, 'Slot request is not rejected');
+      }
+
+      // Return the rejection reason (may be null)
+      return ServerResponse.success(res, {
+        rejectionReason: slotRequest.rejectionReason || null,
+      });
+    } catch (error: any) {
+      // Handle unexpected errors
       return ServerResponse.error(res, error.message || 'Internal Server Error');
     }
   }

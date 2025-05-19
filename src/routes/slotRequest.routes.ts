@@ -12,5 +12,5 @@ router.delete('/:id', checkLoggedIn, asyncHandler(SlotRequestController.deleteSl
 router.put('/:id/approve', checkLoggedIn, checkAdmin, validationMiddleware(ApproveSlotRequestDto), asyncHandler(SlotRequestController.approveSlotRequest));
 router.put('/:id/reject', checkLoggedIn, checkAdmin, validationMiddleware(RejectSlotRequestDto), asyncHandler(SlotRequestController.rejectSlotRequest));
 router.get('/', checkLoggedIn, asyncHandler(SlotRequestController.getSlotRequests));
-
+router.get("/reason/:slotId" , checkLoggedIn , asyncHandler(SlotRequestController.getRejectionReasonBySlotId))
 export default router;

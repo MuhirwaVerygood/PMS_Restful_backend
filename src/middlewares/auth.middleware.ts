@@ -9,6 +9,7 @@ import ServerResponse from "../utils/ServerResponse";
 export const checkLoggedIn: RequestHandler = (req: Request, res: Response, next: NextFunction): void => {
   try {
     const authHeader = req.headers.authorization;
+    
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
       console.log("Missing or invalid Authorization header");
       ServerResponse.unauthorized(res, "You are not logged in: Missing or invalid Authorization header");
