@@ -8,10 +8,13 @@ const transporter: Transporter = nodemailer.createTransport({
   service: 'gmail',
   host: 'smtp.gmail.com',
   port: 465,
-  secure: true, // Use SSL/TLS for port 465
+  secure: true,
   auth: {
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASS,
+  },
+  tls: {
+    rejectUnauthorized: false, // Bypass certificate validation
   },
 });
 
@@ -31,7 +34,6 @@ if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
 if (!process.env.CLIENT_URL) {
   throw new Error('Missing CLIENT_URL in environment variables');
 }
-
 
 const sendSlotApprovalEmail = async (
   to: string,
@@ -79,5 +81,6 @@ const sendSlotApprovalEmail = async (
     return { message: 'Unable to send email', status: false };
   }
 };
+ 
 
 export { sendSlotApprovalEmail };
