@@ -17,6 +17,7 @@ if (process.env.NODE_ENV === 'development') {
 
 
 
+
 export const logAction = async (userId: string | null, action: string) => {
   await prisma.log.create({
     data: {
