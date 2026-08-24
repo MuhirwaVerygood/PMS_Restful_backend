@@ -4,7 +4,7 @@
   "main": "./src/app.ts",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start:dev": "nodemon ./src/app.ts"
+    "start:dev": "node init && nodemon ./src/app.ts"
   },
   "keywords": [],
   "author": "",
@@ -21,6 +21,7 @@
     "helmet": "^8.1.0",
     "jsonwebtoken": "^9.0.2",
     "morgan": "^1.10.0",
+    "node-fetch": "^3.3.2",
     "path": "^0.12.7",
     "reflect-metadata": "^0.2.2",
     "swagger-autogen": "^2.23.7",
